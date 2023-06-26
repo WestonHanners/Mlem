@@ -14,27 +14,57 @@ internal enum FavoritesPurgingError
 
 struct GeneralSettingsView: View
 {
-    @AppStorage("defaultCommentSorting") var defaultCommentSorting: CommentSortTypes = .top
-    
+    @AppStorage("defaultPostSorting") var defaultPostSorting: PostSortType = .hot
+    @AppStorage("defaultCommentSorting") var defaultCommentSorting: CommentSortType = .top
+
     @EnvironmentObject var favoritesTracker: FavoriteCommunitiesTracker
     @EnvironmentObject var appState: AppState
 
     @State private var isShowingFavoritesDeletionConfirmation: Bool = false
-    
+    @State private var diskUsage: Int64 = 0
+
     var body: some View
     {
         List
         {
             Section("Default Sorting")
             {
-                SelectableSettingsItem(
-                    settingIconSystemName: "text.line.first.and.arrowtriangle.forward",
-                    settingName: "Comment sorting",
-                    currentValue: $defaultCommentSorting,
-                    options: CommentSortTypes.allCases
-                )
+                HStack {
+                    Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                        .foregroundColor(.pink)
+                    Text("Posts")
+                    Spacer()
+                    PostSortMenu(selectedSortingOption: $defaultPostSorting, shortLabel: true)
+                }
+                
+                HStack {
+                    Image(systemName: "text.line.first.and.arrowtriangle.forward")
+                        .foregroundColor(.pink)
+                    Text("Comments")
+                    Spacer()
+                    Menu {
+                        ForEach(CommentSortType.allCases, id: \.self) { type in
+                            Button {
+                                defaultCommentSorting = type
+                            } label: {
+                                Label(type.description, systemImage: type.imageName)
+                            }
+                            .disabled(type == defaultCommentSorting)
+                        }
+
+                    } label: {
+                        HStack {
+                            Spacer()
+                            Image(systemName: defaultCommentSorting.imageName)
+                                .tint(.pink)
+                            Text(defaultCommentSorting.description)
+                                .tint(.pink)
+                        }
+                        .frame(maxWidth: .infinity)
+                    }
+                }
             }
-            
+
             Section
             {
                 Button(role: .destructive) {
@@ -52,20 +82,20 @@ struct GeneralSettingsView: View
                             do
                             {
                                 try FileManager.default.removeItem(at: AppConstants.favoriteCommunitiesFilePath)
-                                
+
                                 do
                                 {
                                     try createEmptyFile(at: AppConstants.favoriteCommunitiesFilePath)
-                                    
+
                                     favoritesTracker.favoriteCommunities = .init()
                                 }
                                 catch let emptyFileCreationError
                                 {
-                                    
+
                                     appState.alertTitle = "Couldn't recreate favorites file"
                                     appState.alertMessage = "Try restarting Mlem."
                                     appState.isShowingAlert.toggle()
-                                    
+
                                     print("Failed while creting empty file: \(emptyFileCreationError)")
                                 }
                             }
@@ -74,7 +104,7 @@ struct GeneralSettingsView: View
                                 appState.alertTitle = "Couldn't delete favorites"
                                 appState.alertMessage = "Try restarting Mlem."
                                 appState.isShowingAlert.toggle()
-                                
+
                                 print("Failed while deleting favorites: \(fileDeletionError)")
                             }
                         } label: {
@@ -92,6 +122,30 @@ struct GeneralSettingsView: View
                 }
 
             }
+
+            Section()
+            {
+                Button(role: .destructive) {
+                    URLCache.shared.removeAllCachedResponses()
+                    diskUsage = Int64(URLCache.shared.currentDiskUsage)
+                } label: {
+                    Label("Cache: \(ByteCountFormatter.string(fromByteCount: diskUsage, countStyle: .file))", systemImage: "trash")
+                        .foregroundColor(.red)
+                }
+            }
+            header: {
+                Text("Disk Usage")
+            }
+            footer: {
+                Text("All images are cached for fast reuse.")
+            }
+            
+        }
+        .onAppear {
+            diskUsage = Int64(URLCache.shared.currentDiskUsage)
+        }
+        .refreshable {
+            diskUsage = Int64(URLCache.shared.currentDiskUsage)
         }
     }
 }

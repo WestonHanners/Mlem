@@ -14,6 +14,7 @@ import SwiftUI
 /// - **account**: Authenticated account to make the requests
 struct UserView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.navigationPath) var navigationPath
 
     @State var userID: Int
     @State var account: SavedAccount
@@ -28,11 +29,18 @@ struct UserView: View {
     @State private var errorAlert: ErrorAlert?
 
     var body: some View {
-        NavigationStack {
+        if navigationPath != nil {
             contentView
                 .alert(using: $errorAlert) { content in
                     Alert(title: Text(content.title), message: Text(content.message))
                 }
+        } else {
+            NavigationStack {
+                contentView
+                    .alert(using: $errorAlert) { content in
+                        Alert(title: Text(content.title), message: Text(content.message))
+                    }
+            }
         }
     }
     
@@ -50,7 +58,7 @@ struct UserView: View {
             Section {
                 VStack(alignment: .center, spacing: 15) {
                     if let avatarURL = userDetails.person.avatar {
-                        CachedAsyncImage(url: avatarURL) { image in
+                        CachedAsyncImage(url: avatarURL, urlCache: AppConstants.urlCache) { image in
                             image
                                 .resizable()
                                 .frame(width: 100, height: 100)
