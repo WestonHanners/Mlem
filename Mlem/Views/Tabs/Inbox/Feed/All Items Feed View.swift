@@ -39,29 +39,29 @@ extension InboxView {
     // delete it, recompile, paste it, and it should work. Go figure.
     @ViewBuilder
     func inboxListView() -> some View {
-        ForEach(allItems) { item in
+        ForEach(genItemsToRender()) { item in
             VStack(spacing: spacing) {
                 Group {
                     switch item.type {
                     case .mention(let mention):
                         InboxMentionView(account: account, mention: mention)
                             .task {
-                                if !mentionsTracker.isLoading && item.id == mentionsTracker.loadMarkId {
-                                    await loadMentions()
+                                if mentionsTracker.shouldLoadContent(after: mention) {
+                                    await loadTrackerPage(tracker: mentionsTracker)
                                 }
                             }
                     case .message(let message):
                         InboxMessageView(account: account, message: message)
                             .task {
-                                if !messagesTracker.isLoading && item.id == messagesTracker.loadMarkId {
-                                    await loadMessages()
+                                if messagesTracker.shouldLoadContent(after: message) {
+                                    await loadTrackerPage(tracker: messagesTracker)
                                 }
                             }
                     case .reply(let reply):
                         InboxReplyView(account: account, reply: reply)
                             .task {
-                                if !repliesTracker.isLoading && item.id == repliesTracker.loadMarkId {
-                                    await loadReplies()
+                                if repliesTracker.shouldLoadContent(after: reply) {
+                                    await loadTrackerPage(tracker: repliesTracker)
                                 }
                             }
                     }
@@ -70,6 +70,30 @@ extension InboxView {
                 
                 Divider()
             }
+        }
+    }
+    
+    // TODO: no. just... no.
+    func genItemsToRender() -> [InboxItem] {
+        switch selectionSection {
+        case 0:
+            return allItems
+        case 1:
+            return allItems.filter { item in
+                if case InboxItemType.reply = item.type { return true }
+                return false
+            }
+        case 2:
+            return allItems.filter { item in
+                if case InboxItemType.mention = item.type { return true }
+                return false
+            }
+        case 3:
+            return allItems.filter { item in
+                if case InboxItemType.message = item.type { return true }
+                return false
+            }
+        default: return []
         }
     }
 }
